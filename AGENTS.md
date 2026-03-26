@@ -96,16 +96,20 @@ The core of the extension. Injected into every page matching
 
 1. Call `injectAccountNames()` immediately.
 2. Attach a `MutationObserver` on `document.body` (childList + subtree) to re-run
-   `injectAccountNames()` whenever the DOM changes. This is necessary because the
-   portal is a React SPA; accounts are rendered after the initial page load and the
-   account list can be filtered/re-rendered dynamically.
+   injection whenever the DOM changes. The observer callback is debounced (150 ms)
+   so bursts of React mutations coalesce into a single pass. This is necessary because
+   the portal is a React SPA; accounts are rendered after the initial page load and
+   the account list can be filtered/re-rendered dynamically.
 3. Listen on `chrome.storage.onChanged` — if the user saves new mappings in the
-   options page while the portal tab is open, strip all previously injected tags and
-   run `injectAccountNames()` again with fresh data.
+   options page while the portal tab is open, update the in-memory mapping cache,
+   strip all previously injected tags, and schedule re-injection.
+4. Guard against concurrent runs: while an injection pass is in-flight, additional
+   requests set a flag so exactly one follow-up pass runs after the current pass.
 
 **`injectAccountNames()` algorithm:**
 
-1. Fetch `accountMappings` from `chrome.storage.local`. Return early if empty.
+1. Load `accountMappings` from `chrome.storage.local` once, then reuse an in-memory
+   cache for subsequent passes.
 2. Query all `<span>` elements on the page.
 3. For each span whose trimmed text matches `/^\d{12}$/` (a 12-digit AWS account ID):
    - Look up the ID in the mappings object.
@@ -128,14 +132,15 @@ standard `options_page` entry in the manifest).
 
 Features:
 - **Row editor** — each mapping is a row with an account ID input (monospace, max 12
-  chars, pattern `\d{12}`) and a free-text name input, plus a Remove button.
+  chars, pattern `\d{12}`) and a name input (`maxlength=120`), plus a Remove button.
   Rows are sorted by account ID on load.
 - **Save button** — reads all rows via `readMappingsFromUI()`, validates each ID with
-  `/^\d{12}$/`, then writes the entire `accountMappings` object to storage. Replaces
-  (does not merge) the stored value.
+  `/^\d{12}$/` and each name length (`<= 120`), then writes the entire
+  `accountMappings` object to storage. Replaces (does not merge) the stored value.
 - **Bulk import** — parses the textarea. Accepts `id = name`, `id,name`, or `id\tname`
-  per line. Lines starting with `#` are treated as comments. Import *merges* into the
-  existing stored mappings (new keys win on conflict).
+  per line. Lines starting with `#` are treated as comments. Import validates name
+  length (`<= 120`) and merges into the existing stored mappings (new keys win on
+  conflict).
 - **Bulk export** — writes the stored mappings to the textarea in `id = name` format,
   sorted by account ID.
 - **Status bar** — auto-hides after 3 seconds; shows green on success, red on error.
@@ -194,7 +199,7 @@ Each account entry renders as:
 </button>
 ```
 
-**Key traversal (content.js:88–93):**
+**Key traversal (content.js):**
 
 ```
 span (account ID)

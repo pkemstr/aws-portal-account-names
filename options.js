@@ -7,6 +7,19 @@
 
 const mappingsList = document.getElementById("mappings-list");
 const statusEl = document.getElementById("status");
+const MAX_FRIENDLY_NAME_LENGTH = 120;
+
+function validateFriendlyName(name, contextLabel) {
+  if (!name) {
+    throw new Error(`${contextLabel} cannot be empty`);
+  }
+
+  if (name.length > MAX_FRIENDLY_NAME_LENGTH) {
+    throw new Error(
+      `${contextLabel} is too long (${name.length}/${MAX_FRIENDLY_NAME_LENGTH} chars max)`
+    );
+  }
+}
 
 /** Show a status message that auto-hides after 3 seconds */
 function showStatus(message, type = "success") {
@@ -36,6 +49,7 @@ function createRow(accountId = "", name = "") {
   nameInput.className = "account-name";
   nameInput.placeholder = "Friendly name";
   nameInput.value = name;
+  nameInput.maxLength = MAX_FRIENDLY_NAME_LENGTH;
 
   const removeBtn = document.createElement("button");
   removeBtn.textContent = "Remove";
@@ -58,6 +72,7 @@ function readMappingsFromUI() {
       if (!/^\d{12}$/.test(id)) {
         throw new Error(`Invalid account ID "${id}" - must be exactly 12 digits`);
       }
+      validateFriendlyName(name, `Friendly name for ${id}`);
       mappings[id] = name;
     }
   }
@@ -100,14 +115,18 @@ function saveMappings() {
 function parseBulkText(text) {
   const mappings = {};
   const lines = text.split("\n");
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
 
     // Support formats: "id = name", "id,name", "id\tname"
     const match = trimmed.match(/^(\d{12})\s*[=,\t]\s*(.+)$/);
     if (match) {
-      mappings[match[1]] = match[2].trim();
+      const accountId = match[1];
+      const friendlyName = match[2].trim();
+      validateFriendlyName(friendlyName, `Friendly name for ${accountId} on line ${i + 1}`);
+      mappings[accountId] = friendlyName;
     }
   }
   return mappings;
@@ -128,7 +147,15 @@ function exportMappings() {
 /** Import mappings from bulk text (merges with existing) */
 function importMappings() {
   const text = document.getElementById("bulk-text").value;
-  const newMappings = parseBulkText(text);
+  let newMappings;
+
+  try {
+    newMappings = parseBulkText(text);
+  } catch (e) {
+    showStatus(e.message, "error");
+    return;
+  }
+
   const count = Object.keys(newMappings).length;
 
   if (count === 0) {

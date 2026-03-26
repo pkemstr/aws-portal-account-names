@@ -31,6 +31,8 @@ The extension runs a content script on any `*.awsapps.com/start/*` page. When th
 
 Because the portal is a React single-page app that renders content dynamically, the script also watches for DOM changes via a `MutationObserver` and re-runs injection whenever the account list updates (e.g. after filtering). If you update your mappings while the portal tab is open, the page updates immediately without a reload.
 
+To reduce unnecessary work on React-heavy updates, observer-triggered passes are debounced and coalesced. The content script also caches mappings in memory after first load and refreshes that cache only when `chrome.storage.local` changes.
+
 Your mappings are stored in `chrome.storage.local`, so they persist across browser restarts on the same device and are not synced to other devices.
 
 See `PRIVACY_POLICY.md` for full privacy details.
@@ -54,11 +56,13 @@ Before the extension can label anything, you need to tell it which account IDs m
 3. Add your mappings — one account ID and one name per row
 4. Click **Save**
 
+Friendly names are limited to 120 characters.
+
 You can also bulk-import mappings by pasting into the import box using the format:
 
 ```
-980921727418 = my-production-account
-123456789012 = my-dev-account
+111122223333 = example-production-account
+444455556666 = example-dev-account
 ```
 
 Lines starting with `#` are treated as comments and ignored. The importer also accepts comma-separated (`id,name`) and tab-separated (`id\tname`) formats.
