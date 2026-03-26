@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      width: 320px;
+      padding: 16px;
+      color: #1a1a1a;
+    }
+
+    h2 {
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .info {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .mapping-count {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .mapping-count strong {
+      color: #0972d3;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+
+    .btn:hover {
+      background: #f0f0f0;
+    }
+
+    .btn-primary {
+      background: #0972d3;
+      color: #fff;
+      border-color: #0972d3;
+    }
+
+    .btn-primary:hover {
+      background: #0860b0;
+    }
+  </style>
+</head>
+<body>
+  <h2>AWS Portal Account Names</h2>
+  <p class="info">Adds friendly names to AWS SSO portal accounts.</p>
+  <p class="mapping-count"><strong id="count">0</strong> account mapping(s) configured</p>
+  <button id="settings" class="btn btn-primary">Open Settings</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>

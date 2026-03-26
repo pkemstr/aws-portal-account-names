@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AWS Portal Account Names - Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #f9fafb;
+      color: #1a1a1a;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .section {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .mapping-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .mapping-row input[type="text"] {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+
+    .mapping-row .account-id {
+      width: 160px;
+    }
+
+    .mapping-row .account-name {
+      flex: 1;
+    }
+
+    .mapping-row button {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      color: #d32f2f;
+    }
+
+    .mapping-row button:hover {
+      background: #fdecea;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: #0972d3;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #0860b0;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      border: 1px solid #ccc;
+      color: #1a1a1a;
+    }
+
+    .btn-secondary:hover {
+      background: #f0f0f0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.success {
+      display: block;
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status.error {
+      display: block;
+      background: #fdecea;
+      color: #d32f2f;
+    }
+
+    .bulk-section textarea {
+      width: 100%;
+      height: 200px;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+    }
+
+    .bulk-section .help {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .bulk-section .help code {
+      background: #f0f0f0;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+
+    #mappings-list:empty::after {
+      content: "No mappings configured yet. Add one below or use bulk import.";
+      color: #999;
+      font-style: italic;
+      display: block;
+      padding: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>AWS Portal Account Names</h1>
+  <p class="subtitle">Configure account ID to friendly name mappings</p>
+
+  <div class="section">
+    <h2>Account Mappings</h2>
+    <div id="mappings-list"></div>
+    <div class="actions">
+      <button id="add-row" class="btn btn-secondary">+ Add mapping</button>
+      <button id="save" class="btn btn-primary">Save</button>
+    </div>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="section bulk-section">
+    <h2>Bulk Import / Export</h2>
+    <p class="help">
+      One mapping per line: <code>account_id = friendly_name</code><br>
+      Example: <code>980921727418 = mw-chatlayer-chatbot-troll-shield-prod</code>
+    </p>
+    <textarea id="bulk-text" placeholder="980921727418 = my-production-account&#10;123456789012 = my-dev-account"></textarea>
+    <div class="actions">
+      <button id="bulk-import" class="btn btn-secondary">Import</button>
+      <button id="bulk-export" class="btn btn-secondary">Export</button>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
