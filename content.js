@@ -59,7 +59,7 @@ function isAccountsView() {
 
 /**
  * Retrieve the account mappings from chrome.storage.local.
- * Returns an object like { "123456789012": "my-friendly-name", ... }
+ * Returns an object like { "111122223333": "my-friendly-name", ... }
  */
 function getAccountMappings() {
   return new Promise((resolve) => {

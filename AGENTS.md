@@ -233,8 +233,8 @@ One key is stored in `chrome.storage.local`:
 ```json
 {
   "accountMappings": {
-    "123456789012": "my-production-account",
-    "987654321098": "my-dev-account"
+    "111122223333": "my-production-account",
+    "444455556666": "my-dev-account"
   }
 }
 ```

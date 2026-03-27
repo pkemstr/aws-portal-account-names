@@ -6,8 +6,8 @@ A Chrome extension that adds friendly names to your AWS SSO access portal so you
 
 The AWS access portal lists your accounts like this:
 
-> **cp-aws-9z0kh6bqbvno81khsiwz**
-> 980921727418 | cp-aws-9z0kh6bqbvno81khsiwz@example.org
+> **cp-aws-xxxxxxxxxxxx**
+> 111122223333 | cp-aws-xxxxxxxxxxxx@example.org
 
 When you have six accounts that all look like that, it's hard to know which one to click.
 
@@ -15,8 +15,8 @@ When you have six accounts that all look like that, it's hard to know which one 
 
 It reads a mapping of account IDs to names that you configure, then injects the friendly name directly into the page next to each account alias:
 
-> **cp-aws-9z0kh6bqbvno81khsiwz (my-production-account)**
-> 980921727418 | cp-aws-9z0kh6bqbvno81khsiwz@example.org
+> **cp-aws-xxxxxxxxxxxx (my-production-account)**
+> 111122223333 | cp-aws-xxxxxxxxxxxx@example.org
 
 Names appear automatically every time you load the portal — no extra clicks required.
 
