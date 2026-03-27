@@ -42,6 +42,7 @@ let injectInFlight = false;
 let injectRequestedWhileRunning = false;
 let debounceTimerId = null;
 let observer = null;
+let wasAccountsView = null;
 
 function isAccountsView() {
   const rawHash = window.location.hash || "";
@@ -190,43 +191,45 @@ function scheduleInjectAccountNames() {
  * The AWS portal is a single-page app that loads account tiles dynamically.
  * We use a MutationObserver to re-run injection whenever the DOM changes.
  */
-function startObserverAndInject() {
+function ensureObserverStarted() {
   if (observer) {
-    scheduleInjectAccountNames();
     return;
   }
 
-  injectAccountNames();
+  const observerTarget = document.body || document.documentElement;
+  if (!observerTarget) {
+    return;
+  }
 
   observer = new MutationObserver(() => {
-    scheduleInjectAccountNames();
+    handlePotentialViewUpdate();
   });
 
-  observer.observe(document.body, {
+  observer.observe(observerTarget, {
     childList: true,
     subtree: true,
   });
 }
 
-function stopObserverAndCleanup() {
-  if (observer) {
-    observer.disconnect();
-    observer = null;
+function handlePotentialViewUpdate() {
+  const onAccountsView = isAccountsView();
+
+  if (onAccountsView !== wasAccountsView) {
+    wasAccountsView = onAccountsView;
+
+    if (!onAccountsView) {
+      if (debounceTimerId !== null) {
+        clearTimeout(debounceTimerId);
+        debounceTimerId = null;
+      }
+
+      clearInjectedAccountNames();
+      return;
+    }
   }
 
-  if (debounceTimerId !== null) {
-    clearTimeout(debounceTimerId);
-    debounceTimerId = null;
-  }
-
-  clearInjectedAccountNames();
-}
-
-function updateInjectionForCurrentView() {
-  if (isAccountsView()) {
-    startObserverAndInject();
-  } else {
-    stopObserverAndCleanup();
+  if (onAccountsView) {
+    scheduleInjectAccountNames();
   }
 }
 
@@ -247,5 +250,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // Start
-updateInjectionForCurrentView();
-window.addEventListener("hashchange", updateInjectionForCurrentView);
+ensureObserverStarted();
+handlePotentialViewUpdate();
+window.addEventListener("hashchange", handlePotentialViewUpdate);
