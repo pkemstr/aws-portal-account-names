@@ -41,6 +41,21 @@ let mappingsLoaded = false;
 let injectInFlight = false;
 let injectRequestedWhileRunning = false;
 let debounceTimerId = null;
+let observer = null;
+
+function isAccountsView() {
+  const rawHash = window.location.hash || "";
+  const hashWithoutPound = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
+  const queryStartIndex = hashWithoutPound.indexOf("?");
+
+  if (queryStartIndex === -1) {
+    return false;
+  }
+
+  const query = hashWithoutPound.slice(queryStartIndex + 1);
+  const params = new URLSearchParams(query);
+  return params.get("tab") === "accounts";
+}
 
 /**
  * Retrieve the account mappings from chrome.storage.local.
@@ -137,6 +152,10 @@ function injectAccountNamesFromCache() {
  * the friendly name into the associated account alias element.
  */
 async function injectAccountNames() {
+  if (!isAccountsView()) {
+    return;
+  }
+
   if (injectInFlight) {
     injectRequestedWhileRunning = true;
     return;
@@ -171,11 +190,15 @@ function scheduleInjectAccountNames() {
  * The AWS portal is a single-page app that loads account tiles dynamically.
  * We use a MutationObserver to re-run injection whenever the DOM changes.
  */
-function observeAndInject() {
-  // Initial run
+function startObserverAndInject() {
+  if (observer) {
+    scheduleInjectAccountNames();
+    return;
+  }
+
   injectAccountNames();
 
-  const observer = new MutationObserver(() => {
+  observer = new MutationObserver(() => {
     scheduleInjectAccountNames();
   });
 
@@ -185,11 +208,37 @@ function observeAndInject() {
   });
 }
 
+function stopObserverAndCleanup() {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+
+  if (debounceTimerId !== null) {
+    clearTimeout(debounceTimerId);
+    debounceTimerId = null;
+  }
+
+  clearInjectedAccountNames();
+}
+
+function updateInjectionForCurrentView() {
+  if (isAccountsView()) {
+    startObserverAndInject();
+  } else {
+    stopObserverAndCleanup();
+  }
+}
+
 // Also re-inject when the user updates mappings from the options page
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.accountMappings) {
     cachedMappings = changes.accountMappings.newValue || {};
     mappingsLoaded = true;
+
+    if (!isAccountsView()) {
+      return;
+    }
 
     // Remove existing injected tags so they get re-created with new names
     clearInjectedAccountNames();
@@ -198,4 +247,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // Start
-observeAndInject();
+updateInjectionForCurrentView();
+window.addEventListener("hashchange", updateInjectionForCurrentView);

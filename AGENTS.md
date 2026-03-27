@@ -90,28 +90,35 @@ The extension has three independent contexts that communicate only through
 The core of the extension. Injected into every page matching
 `https://*.awsapps.com/start/*` at `document_idle`.
 
-**Entry point:** `observeAndInject()` — called once at the bottom of the file.
+**Entry point:** `updateInjectionForCurrentView()` — called once at the bottom of
+the file, and again on hash-route changes.
 
 **Flow:**
 
-1. Call `injectAccountNames()` immediately.
-2. Attach a `MutationObserver` on `document.body` (childList + subtree) to re-run
-   injection whenever the DOM changes. The observer callback is debounced (150 ms)
-   so bursts of React mutations coalesce into a single pass. This is necessary because
-   the portal is a React SPA; accounts are rendered after the initial page load and
-   the account list can be filtered/re-rendered dynamically.
-3. Listen on `chrome.storage.onChanged` — if the user saves new mappings in the
-   options page while the portal tab is open, update the in-memory mapping cache,
-   strip all previously injected tags, and schedule re-injection.
-4. Guard against concurrent runs: while an injection pass is in-flight, additional
+1. Determine whether the current hash route is the Accounts view by parsing
+   `location.hash` and checking `tab=accounts`.
+2. If on Accounts view:
+   - call `injectAccountNames()` immediately,
+   - attach a `MutationObserver` on `document.body` (childList + subtree), and
+   - debounce observer-triggered reinjection (150 ms) so bursts of React mutations
+     coalesce into a single pass.
+3. If not on Accounts view, disconnect the observer (if active), clear pending
+   debounce timers, and remove previously injected tags.
+4. Listen on `hashchange` to toggle the behavior above as the SPA navigates between
+   tabs.
+5. Listen on `chrome.storage.onChanged` — if the user saves new mappings in the
+   options page, update the in-memory mapping cache; only clear/reinject immediately
+   when currently on Accounts view.
+6. Guard against concurrent runs: while an injection pass is in-flight, additional
    requests set a flag so exactly one follow-up pass runs after the current pass.
 
 **`injectAccountNames()` algorithm:**
 
-1. Load `accountMappings` from `chrome.storage.local` once, then reuse an in-memory
+1. Exit early unless the current hash route is `tab=accounts`.
+2. Load `accountMappings` from `chrome.storage.local` once, then reuse an in-memory
    cache for subsequent passes.
-2. Query all `<span>` elements on the page.
-3. For each span whose trimmed text matches `/^\d{12}$/` (a 12-digit AWS account ID):
+3. Query all `<span>` elements on the page.
+4. For each span whose trimmed text matches `/^\d{12}$/` (a 12-digit AWS account ID):
    - Look up the ID in the mappings object.
    - If no mapping exists for this ID, skip it.
    - Walk up the DOM to find the shared vertical container (see DOM structure below).
