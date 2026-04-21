@@ -38,7 +38,7 @@ loaded by Chrome directly as-is.
 > If you need the snapshot (e.g., to debug a broken DOM traversal after an AWS portal
 > update), ask the user to regenerate it:
 >
-> 1. Log in and navigate to `https://d-XXXXXXXX.awsapps.com/start/#/?tab=accounts`
+> 1. Log in and navigate to `https://d-XXXXXXXX.awsapps.com/start/#/`
 >    so the full account list is visible.
 > 2. Open the Chrome menu (⋮) → **Save and share** → **Save page as…**
 > 3. In the save dialog, set the format to **Webpage, HTML Only** (`.html`, not
@@ -90,20 +90,24 @@ The extension has three independent contexts that communicate only through
 The core of the extension. Injected into every page matching
 `https://*.awsapps.com/start/*` at `document_idle`.
 
-**Entry point:** `updateInjectionForCurrentView()` — called once at the bottom of
-the file, and again on hash-route changes.
+**Entry points:** `handlePotentialViewUpdate()` and `injectAccountNames()`.
+
+- `ensureObserverStarted()` is called once at startup.
+- `handlePotentialViewUpdate()` runs at startup, on `hashchange`, and after DOM
+  mutations (debounced).
 
 **Flow:**
 
 1. Determine whether the current hash route is the Accounts view by parsing
-   `location.hash` and checking `tab=accounts`.
+   `location.hash`.
+   - Accounts routes include `#/`, `#`, and `#/?tab=accounts`.
+   - Non-Accounts routes include `#/?tab=applications` and `#/preferences`.
 2. If on Accounts view:
-   - call `injectAccountNames()` immediately,
-   - attach a `MutationObserver` on `document.body` (childList + subtree), and
+   - call `injectAccountNames()` immediately, and
    - debounce observer-triggered reinjection (150 ms) so bursts of React mutations
      coalesce into a single pass.
-3. If not on Accounts view, disconnect the observer (if active), clear pending
-   debounce timers, and remove previously injected tags.
+3. If not on Accounts view, clear pending debounce timers and remove previously
+   injected tags.
 4. Listen on `hashchange` to toggle the behavior above as the SPA navigates between
    tabs.
 5. Listen on `chrome.storage.onChanged` — if the user saves new mappings in the
@@ -112,22 +116,27 @@ the file, and again on hash-route changes.
 6. Guard against concurrent runs: while an injection pass is in-flight, additional
    requests set a flag so exactly one follow-up pass runs after the current pass.
 
+The observer itself starts once and remains active for SPA updates:
+- `ensureObserverStarted()` attaches a single `MutationObserver` on `document.body`
+  (`childList + subtree`).
+
 **`injectAccountNames()` algorithm:**
 
-1. Exit early unless the current hash route is `tab=accounts`.
+1. Exit early unless the current hash route resolves to the Accounts view.
 2. Load `accountMappings` from `chrome.storage.local` once, then reuse an in-memory
    cache for subsequent passes.
-3. Query all `<span>` elements on the page.
-4. For each span whose trimmed text matches `/^\d{12}$/` (a 12-digit AWS account ID):
-   - Look up the ID in the mappings object.
-   - If no mapping exists for this ID, skip it.
-   - Walk up the DOM to find the shared vertical container (see DOM structure below).
-   - Find the `<strong>` element inside that container, which holds the account alias span.
-   - If the alias span already has `data-account-name-injected` attribute, skip (prevents
-     duplicate injection across MutationObserver callbacks).
-   - Set `data-account-name-injected="true"` on the alias span as the de-duplication marker.
-   - Insert a new `<span class="aws-portal-account-name-tag">` immediately after the alias
-     span using `aliasSpan.after(nameTag)`.
+3. Inject using **table/treegrid layout** selectors first:
+   - Iterate `<tr>` rows.
+   - Locate alias in row header (`th[scope="row"]`) via
+     `[data-testid="account-list-cell"]`.
+   - Find account ID in row data cells by matching `/^\d{12}$/`.
+   - Append `<span class="aws-portal-account-name-tag">` to the alias element.
+4. Inject using **legacy card layout** selectors as a fallback:
+   - Find `<span>` with `/^\d{12}$/`.
+   - Traverse through `<p>` and shared container to `<strong>` alias span.
+   - Insert a name tag after the alias span.
+5. In both paths, use `data-account-name-injected` on the alias element/span to
+   prevent duplicate injection.
 
 **De-duplication marker:** `data-account-name-injected` on the alias span.
 **Injected element class:** `aws-portal-account-name-tag` (used for cleanup on re-inject).
@@ -168,7 +177,40 @@ semantic segment followed by a hash suffix that **may change** when AWS updates 
 portal (e.g., `awsui_child_18582_whr0e_149`). The content script does **not** rely on
 class names; it navigates by tag name and DOM position only.
 
-Each account entry renders as:
+### Current layout (observed live)
+
+Each account entry renders as a table/treegrid row:
+
+```
+<tr>
+  <th scope="row">                        ← alias cell
+    ...
+    <div data-testid="account-list-cell">
+      cp-aws-xxxxxxxxxxxx                  ← account alias — we inject here
+    </div>
+  </th>
+  <td>                                     ← account ID cell
+    ...
+    <span>123456789012</span>              ← 12-digit account ID
+  </td>
+  <td>
+    <span>alias@example.org</span>
+  </td>
+</tr>
+```
+
+**Key traversal (current layout):**
+
+```
+tr
+  → row.querySelector("th[scope='row'], th")
+  → headerCell.querySelector("[data-testid='account-list-cell']")  = alias element
+  → row.querySelectorAll("td span, td div, td") and match /^\d{12}$/ = account ID
+```
+
+### Legacy layout (still supported)
+
+Older portal builds used this card-like structure:
 
 ```
 <button>
@@ -206,7 +248,7 @@ Each account entry renders as:
 </button>
 ```
 
-**Key traversal (content.js):**
+**Key traversal (legacy layout):**
 
 ```
 span (account ID)
@@ -217,9 +259,8 @@ span (account ID)
   → strong.querySelector("span")         = the alias <span>
 ```
 
-Going only one level up from `<p>` (the original bug) landed on child wrapper 2,
-which does not contain `<strong>`, causing `querySelector("strong")` to return null
-and silently skip every account.
+Going only one level up from `<p>` (the original legacy bug) lands on child wrapper 2,
+which does not contain `<strong>`, causing `querySelector("strong")` to return null.
 
 The saved HTML snapshot in `portal-page-html/` can be used to re-verify this
 structure if the traversal breaks after an AWS portal update.
@@ -255,17 +296,21 @@ hold hundreds (or more) mappings without approaching limits in normal use.
 
 ## Known fragility: AWS portal DOM changes
 
-The content script's traversal is based on the DOM structure observed in the saved
-HTML snapshot and confirmed working as of the extension's creation. The AWS portal is
-a React SPA using CloudScape components. If AWS updates the portal and the injection
-stops working, the most likely cause is a change to the nesting depth between `<p>`
-and the shared vertical container.
+The content script supports both current table/treegrid and legacy card layouts, but
+the AWS portal is a React SPA using CloudScape components and can change structure at
+any time. If injection stops working, the most likely cause is either:
+
+- a route behavior change (Accounts no longer at `#/` or `#/?tab=accounts`), or
+- a DOM shape change in either row/header/cell or legacy `<p>/<strong>` traversal.
 
 **Debugging steps:**
 1. Open DevTools on the portal page → Console tab.
-2. Run: `document.querySelectorAll("span")` and spot the account ID spans to confirm
-   they are still plain `<span>` elements with only the ID as text content.
-3. Click one of the account rows, inspect the element, and trace the path from the
-   account ID `<span>` up to the nearest `<strong>`. Count the levels between `<p>`
-   and their shared ancestor. Update the traversal in `content.js` accordingly.
-4. Update the DOM diagram in this file and in the `content.js` header comment.
+2. Confirm route detection by checking `location.hash` on the Accounts view.
+3. Inspect one account row and verify:
+   - alias is reachable from a row header (`th[scope='row']`) and
+     `[data-testid='account-list-cell']`, and
+   - account ID remains detectable as a 12-digit text node in row data cells.
+4. If current row traversal fails, inspect whether the legacy `<p>/<strong>` path is
+   present and still valid.
+5. Update traversal logic in `content.js`, then update this file and the `content.js`
+   header comment.

@@ -4,37 +4,24 @@
  * Scans the AWS SSO portal page for account entries and appends
  * friendly names based on user-configured account ID -> name mappings.
  *
- * The portal DOM structure per account (from the live page):
+ * The portal has used two account-list layouts:
  *
- *   <button>
- *     ...
- *     <div class="awsui_vertical_...">              <-- shared container
- *       <div class="awsui_child_...">               <-- child wrapper 1
- *         <strong>
- *           <div class="awsui_horizontal_s_...">
- *             <div class="awsui_child_...">
- *               <div><span>{account-alias}</span></div>  <-- append name here
- *             </div>
- *           </div>
- *         </strong>
- *       </div>
- *       <div class="awsui_child_...">               <-- child wrapper 2
- *         <p>
- *           <div class="awsui_horizontal_xxs_...">
- *             <div class="awsui_child_...">
- *               <div><span>{12-digit-id}</span></div>  <-- we find this
- *             </div>
- *             <div>...</div>  (pipe separator)
- *             <div>...</div>  (email)
- *           </div>
- *         </p>
- *       </div>
- *     </div>
- *   </button>
+ * 1) Current layout (table/treegrid):
+ *      tr
+ *       - th[scope="row"] contains account alias
+ *       - td contains account ID and email
+ *
+ * 2) Legacy layout (card-like):
+ *      button > div.awsui_vertical_...
+ *       - <strong> branch contains alias
+ *       - <p> branch contains account ID
+ *
+ * We support both layouts to stay resilient across AWS portal updates.
  */
 
 const MARKER_ATTR = "data-account-name-injected";
 const REINJECT_DEBOUNCE_MS = 150;
+const ACCOUNT_ID_RE = /^\d{12}$/;
 
 let cachedMappings = {};
 let mappingsLoaded = false;
@@ -50,12 +37,24 @@ function isAccountsView() {
   const queryStartIndex = hashWithoutPound.indexOf("?");
 
   if (queryStartIndex === -1) {
-    return false;
+    const route = hashWithoutPound;
+    return route === "/" || route === "";
   }
 
+  const route = hashWithoutPound.slice(0, queryStartIndex);
   const query = hashWithoutPound.slice(queryStartIndex + 1);
   const params = new URLSearchParams(query);
-  return params.get("tab") === "accounts";
+  const tab = params.get("tab");
+
+  if (tab === "accounts") {
+    return true;
+  }
+
+  if (!tab) {
+    return route === "/" || route === "";
+  }
+
+  return false;
 }
 
 /**
@@ -84,19 +83,66 @@ function clearInjectedAccountNames() {
   document.querySelectorAll(`[${MARKER_ATTR}]`).forEach((el) => el.removeAttribute(MARKER_ATTR));
 }
 
-function injectAccountNamesFromCache() {
-  if (!cachedMappings || Object.keys(cachedMappings).length === 0) {
-    return;
-  }
+function createNameTag(friendlyName) {
+  const nameTag = document.createElement("span");
+  nameTag.className = "aws-portal-account-name-tag";
+  nameTag.textContent = ` (${friendlyName})`;
+  nameTag.style.cssText = "color: #0972d3; font-weight: bold;";
+  return nameTag;
+}
 
-  // Find all <span> elements and filter to those containing a 12-digit account ID
+function injectAccountNamesForTableLayout() {
+  const rows = document.querySelectorAll("tr");
+
+  for (const row of rows) {
+    const headerCell = row.querySelector("th[scope='row'], th");
+    if (!headerCell) {
+      continue;
+    }
+
+    const idCandidateElements = row.querySelectorAll("td span, td div, td");
+    let accountId = null;
+
+    for (const candidate of idCandidateElements) {
+      const text = candidate.textContent.trim();
+      if (ACCOUNT_ID_RE.test(text)) {
+        accountId = text;
+        break;
+      }
+    }
+
+    if (!accountId) {
+      continue;
+    }
+
+    const friendlyName = cachedMappings[accountId];
+    if (!friendlyName) {
+      continue;
+    }
+
+    const aliasElement =
+      headerCell.querySelector("[data-testid='account-list-cell']") ||
+      headerCell.querySelector("span, strong, div");
+
+    if (!aliasElement) {
+      continue;
+    }
+
+    if (aliasElement.hasAttribute(MARKER_ATTR)) {
+      continue;
+    }
+    aliasElement.setAttribute(MARKER_ATTR, "true");
+
+    aliasElement.appendChild(createNameTag(friendlyName));
+  }
+}
+
+function injectAccountNamesForLegacyCardLayout() {
   const allSpans = document.querySelectorAll("span");
 
   for (const span of allSpans) {
     const text = span.textContent.trim();
-
-    // Match a 12-digit AWS account ID
-    if (!/^\d{12}$/.test(text)) {
+    if (!ACCOUNT_ID_RE.test(text)) {
       continue;
     }
 
@@ -107,50 +153,37 @@ function injectAccountNamesFromCache() {
       continue;
     }
 
-    // Navigate up to the shared container that holds both the alias and the ID.
-    //
-    // From the account ID <span>, the path upward is:
-    //   span > div > div.child > div.horizontal > p > div.child > div.vertical
-    //
-    // The <p> wrapping the ID line and the <strong> wrapping the alias
-    // are each inside their own <div class="awsui_child_..."> wrapper.
-    // Both wrappers are children of a shared <div class="awsui_vertical_...">.
-    // So from <p> we must go up TWO levels to reach the shared container.
     const pElement = span.closest("p");
     if (!pElement) continue;
 
-    // p -> div.child (wrapper) -> div.vertical (shared container)
     const container = pElement.parentElement?.parentElement;
     if (!container) continue;
 
     const strongElement = container.querySelector("strong");
     if (!strongElement) continue;
 
-    // The alias span is inside: <strong> > div.horizontal > div.child > div > span
     const aliasSpan = strongElement.querySelector("span");
     if (!aliasSpan) continue;
 
-    // Avoid injecting twice
     if (aliasSpan.hasAttribute(MARKER_ATTR)) continue;
     aliasSpan.setAttribute(MARKER_ATTR, "true");
 
-    // Append the friendly name next to the alias text.
-    // Insert into the same <div> as the alias span so it flows inline.
-    const nameTag = document.createElement("span");
-    nameTag.className = "aws-portal-account-name-tag";
-    nameTag.textContent = ` (${friendlyName})`;
-    nameTag.style.cssText =
-      "color: #0972d3; font-weight: bold;";
-
-    // aliasSpan is inside <div><span>alias</span></div>
-    // Append to the same parent div so it appears right after the alias
-    aliasSpan.after(nameTag);
+    aliasSpan.after(createNameTag(friendlyName));
   }
 }
 
+function injectAccountNamesFromCache() {
+  if (!cachedMappings || Object.keys(cachedMappings).length === 0) {
+    return;
+  }
+
+  injectAccountNamesForTableLayout();
+  injectAccountNamesForLegacyCardLayout();
+}
+
 /**
- * Find all 12-digit account ID spans on the page and inject
- * the friendly name into the associated account alias element.
+ * Inject friendly names for account IDs in the current Accounts view.
+ * Supports both current table/treegrid rows and legacy card layout.
  */
 async function injectAccountNames() {
   if (!isAccountsView()) {
@@ -188,8 +221,8 @@ function scheduleInjectAccountNames() {
 }
 
 /**
- * The AWS portal is a single-page app that loads account tiles dynamically.
- * We use a MutationObserver to re-run injection whenever the DOM changes.
+ * The AWS portal is a React SPA that updates the account list dynamically.
+ * Keep one observer active and debounce reinjection on mutation bursts.
  */
 function ensureObserverStarted() {
   if (observer) {
@@ -233,7 +266,7 @@ function handlePotentialViewUpdate() {
   }
 }
 
-// Also re-inject when the user updates mappings from the options page
+// Re-inject when mappings are updated in extension storage.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.accountMappings) {
     cachedMappings = changes.accountMappings.newValue || {};
@@ -243,13 +276,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
       return;
     }
 
-    // Remove existing injected tags so they get re-created with new names
+    // Replace any existing injected tags with updated names.
     clearInjectedAccountNames();
     scheduleInjectAccountNames();
   }
 });
 
-// Start
+// Initialize route handling and observer wiring.
 ensureObserverStarted();
 handlePotentialViewUpdate();
 window.addEventListener("hashchange", handlePotentialViewUpdate);

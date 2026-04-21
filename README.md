@@ -23,17 +23,18 @@ Names appear automatically every time you load the portal — no extra clicks re
 ## How it works
 
 The extension runs a content script on `*.awsapps.com/start/*`, but it only activates
-its injection behavior when the portal hash route is on the Accounts tab
-(`tab=accounts`). When active, the script:
+its injection behavior when the portal hash route is on the Accounts view. The AWS
+portal currently uses `#/` as the default Accounts route (and may also use
+`#/?tab=accounts`). When active, the script:
 
 1. Reads your configured mappings from local Chrome extension storage
-2. Scans the page for spans containing 12-digit AWS account IDs
-3. Walks up the DOM to find the account alias element sitting above each ID
+2. Scans for 12-digit AWS account IDs in the account list
+3. Finds the matching account alias in the same row/container
 4. Injects the friendly name in parentheses right after the alias
 
 Because the portal is a React single-page app that renders content dynamically, the script watches for DOM changes via a `MutationObserver` and re-runs injection whenever the account list updates (e.g. after filtering). If you update your mappings while the portal tab is open, the page updates immediately without a reload.
 
-The script also listens for hash-route changes. Entering the Accounts tab starts observation and injection; leaving that tab disconnects the observer and removes previously injected name tags.
+The script also listens for hash-route changes. Entering the Accounts view triggers injection; leaving that view clears previously injected name tags.
 
 To reduce unnecessary work on React-heavy updates, observer-triggered passes are debounced and coalesced. The content script also caches mappings in memory after first load and refreshes that cache only when `chrome.storage.local` changes.
 
