@@ -26,6 +26,7 @@ let activeColorRow = null;
 let activeColorHex = DEFAULT_NAME_COLOR;
 let wheelImageData = null;
 let wheelPointerDown = false;
+let colorModalReturnFocusEl = null;
 
 function validateFriendlyName(name, contextLabel) {
   if (!name) {
@@ -231,12 +232,29 @@ function setActiveModalColor(colorHex) {
 }
 
 function closeColorPickerModal() {
+  const activeElement = document.activeElement;
+  const shouldRestoreFocus = activeElement instanceof HTMLElement && colorPickerModal.contains(activeElement);
+
+  if (shouldRestoreFocus) {
+    const fallbackRowButton = activeColorRow?.querySelector(".account-color-swatch");
+    const returnFocusEl =
+      colorModalReturnFocusEl instanceof HTMLElement && document.contains(colorModalReturnFocusEl)
+        ? colorModalReturnFocusEl
+        : fallbackRowButton;
+
+    if (returnFocusEl instanceof HTMLElement) {
+      returnFocusEl.focus();
+    }
+  }
+
   colorPickerModal.classList.remove("open");
   colorPickerModal.setAttribute("aria-hidden", "true");
   activeColorRow = null;
+  colorModalReturnFocusEl = null;
 }
 
 function openColorPickerModal(row) {
+  colorModalReturnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   activeColorRow = row;
   const colorInput = row.querySelector(".account-color");
   const colorHex = normalizeHexColor(colorInput.value) || DEFAULT_NAME_COLOR;
@@ -244,6 +262,8 @@ function openColorPickerModal(row) {
   colorPickerModal.classList.add("open");
   colorPickerModal.setAttribute("aria-hidden", "false");
   setActiveModalColor(colorHex);
+  colorHexInput.focus();
+  colorHexInput.select();
 }
 
 function applyColorFromWheelPosition(clientX, clientY) {
