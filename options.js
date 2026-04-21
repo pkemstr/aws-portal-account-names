@@ -373,7 +373,7 @@ function showStatus(message, type = "success") {
 }
 
 /** Create a single mapping row in the UI */
-function createRow(accountId = "", name = "", color = DEFAULT_NAME_COLOR) {
+function createRow(accountId = "", name = "", color = DEFAULT_NAME_COLOR, hidden = false) {
   const row = document.createElement("div");
   row.className = "mapping-row";
 
@@ -405,6 +405,21 @@ function createRow(accountId = "", name = "", color = DEFAULT_NAME_COLOR) {
   colorButton.title = `Display color: ${colorInput.value}`;
   colorButton.addEventListener("click", () => openColorPickerModal(row));
 
+  const hiddenLabel = document.createElement("label");
+  hiddenLabel.className = "account-hidden-label";
+
+  const hiddenInput = document.createElement("input");
+  hiddenInput.type = "checkbox";
+  hiddenInput.className = "account-hidden";
+  hiddenInput.checked = hidden;
+  hiddenInput.title = "Hide this account by default";
+
+  const hiddenText = document.createElement("span");
+  hiddenText.textContent = "Hide";
+
+  hiddenLabel.appendChild(hiddenInput);
+  hiddenLabel.appendChild(hiddenText);
+
   const removeBtn = document.createElement("button");
   removeBtn.className = "remove-row-btn";
   removeBtn.textContent = "Remove";
@@ -414,6 +429,7 @@ function createRow(accountId = "", name = "", color = DEFAULT_NAME_COLOR) {
   row.appendChild(nameInput);
   row.appendChild(colorButton);
   row.appendChild(colorInput);
+  row.appendChild(hiddenLabel);
   row.appendChild(removeBtn);
   mappingsList.appendChild(row);
 }
@@ -426,6 +442,7 @@ function readMappingsFromUI() {
     const id = row.querySelector(".account-id").value.trim();
     const name = row.querySelector(".account-name").value.trim();
     const color = row.querySelector(".account-color").value;
+    const hidden = row.querySelector(".account-hidden").checked;
     if (id && name) {
       if (!/^\d{12}$/.test(id)) {
         throw new Error(`Invalid account ID "${id}" - must be exactly 12 digits`);
@@ -435,6 +452,7 @@ function readMappingsFromUI() {
       mappings[id] = {
         name,
         color,
+        hidden,
       };
     }
   }
@@ -455,7 +473,8 @@ function loadMappings() {
       const name = typeof mappingEntry === "string" ? mappingEntry : mappingEntry?.name || "";
       const color =
         typeof mappingEntry === "string" ? DEFAULT_NAME_COLOR : mappingEntry?.color || DEFAULT_NAME_COLOR;
-      createRow(id, name, color);
+      const hidden = typeof mappingEntry === "string" ? false : mappingEntry?.hidden === true;
+      createRow(id, name, color, hidden);
     }
   });
 }
@@ -494,6 +513,7 @@ function parseBulkText(text) {
       mappings[accountId] = {
         name: friendlyName,
         color: DEFAULT_NAME_COLOR,
+        hidden: false,
       };
     }
   }

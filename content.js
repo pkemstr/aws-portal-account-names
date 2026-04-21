@@ -20,6 +20,8 @@
  */
 
 const MARKER_ATTR = "data-account-name-injected";
+const HIDDEN_ROW_ATTR = "data-account-hidden-by-extension";
+const SHOW_HIDDEN_TOGGLE_ID = "aws-portal-show-hidden-accounts-toggle";
 const REINJECT_DEBOUNCE_MS = 150;
 const ACCOUNT_ID_RE = /^\d{12}$/;
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -32,6 +34,7 @@ let injectRequestedWhileRunning = false;
 let debounceTimerId = null;
 let observer = null;
 let wasAccountsView = null;
+let showHiddenAccounts = false;
 
 function isAccountsView() {
   const rawHash = window.location.hash || "";
@@ -95,6 +98,7 @@ function resolveMappingEntry(accountId) {
     return {
       friendlyName: entry,
       color: DEFAULT_NAME_COLOR,
+      hidden: false,
     };
   }
 
@@ -107,6 +111,7 @@ function resolveMappingEntry(accountId) {
   return {
     friendlyName,
     color,
+    hidden: entry.hidden === true,
   };
 }
 
@@ -118,6 +123,88 @@ function createNameTag(friendlyName, color = DEFAULT_NAME_COLOR) {
   return nameTag;
 }
 
+function getAccountIdFromTableRow(row) {
+  const idCandidateElements = row.querySelectorAll("td span, td div, td");
+  for (const candidate of idCandidateElements) {
+    const text = candidate.textContent.trim();
+    if (ACCOUNT_ID_RE.test(text)) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function setElementHiddenState(element, shouldHide) {
+  if (!element) {
+    return;
+  }
+
+  if (shouldHide) {
+    element.style.display = "none";
+    element.setAttribute(HIDDEN_ROW_ATTR, "true");
+    return;
+  }
+
+  if (!element.hasAttribute(HIDDEN_ROW_ATTR)) {
+    return;
+  }
+
+  element.style.display = "";
+  element.removeAttribute(HIDDEN_ROW_ATTR);
+}
+
+function clearHiddenAccountRows() {
+  document.querySelectorAll(`[${HIDDEN_ROW_ATTR}]`).forEach((element) => {
+    element.style.display = "";
+    element.removeAttribute(HIDDEN_ROW_ATTR);
+  });
+}
+
+function removeShowHiddenAccountsToggle() {
+  const existingToggle = document.getElementById(SHOW_HIDDEN_TOGGLE_ID);
+  if (existingToggle) {
+    existingToggle.remove();
+  }
+}
+
+function ensureShowHiddenAccountsToggle() {
+  const filterContainer = document.querySelector("[data-testid='accounts-table-text-filter']");
+  if (!filterContainer) {
+    return;
+  }
+
+  const existingToggle = document.getElementById(SHOW_HIDDEN_TOGGLE_ID);
+  if (existingToggle) {
+    const checkbox = existingToggle.querySelector("input[type='checkbox']");
+    if (checkbox) {
+      checkbox.checked = showHiddenAccounts;
+    }
+    return;
+  }
+
+  const toggleLabel = document.createElement("label");
+  toggleLabel.id = SHOW_HIDDEN_TOGGLE_ID;
+  toggleLabel.style.cssText =
+    "display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:13px;color:#1a1a1a;";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = showHiddenAccounts;
+  checkbox.style.margin = "0";
+  checkbox.addEventListener("change", () => {
+    showHiddenAccounts = checkbox.checked;
+    applyHiddenAccountVisibilityFromCache();
+  });
+
+  const text = document.createElement("span");
+  text.textContent = "Show hidden accounts";
+
+  toggleLabel.appendChild(checkbox);
+  toggleLabel.appendChild(text);
+  filterContainer.parentElement?.appendChild(toggleLabel);
+}
+
 function injectAccountNamesForTableLayout() {
   const rows = document.querySelectorAll("tr");
 
@@ -127,16 +214,7 @@ function injectAccountNamesForTableLayout() {
       continue;
     }
 
-    const idCandidateElements = row.querySelectorAll("td span, td div, td");
-    let accountId = null;
-
-    for (const candidate of idCandidateElements) {
-      const text = candidate.textContent.trim();
-      if (ACCOUNT_ID_RE.test(text)) {
-        accountId = text;
-        break;
-      }
-    }
+    const accountId = getAccountIdFromTableRow(row);
 
     if (!accountId) {
       continue;
@@ -161,6 +239,21 @@ function injectAccountNamesForTableLayout() {
     aliasElement.setAttribute(MARKER_ATTR, "true");
 
     aliasElement.appendChild(createNameTag(mappingEntry.friendlyName, mappingEntry.color));
+  }
+}
+
+function applyHiddenAccountVisibilityForTableLayout() {
+  const rows = document.querySelectorAll("tr");
+
+  for (const row of rows) {
+    const accountId = getAccountIdFromTableRow(row);
+    if (!accountId) {
+      continue;
+    }
+
+    const mappingEntry = resolveMappingEntry(accountId);
+    const shouldHide = !!mappingEntry?.hidden && !showHiddenAccounts;
+    setElementHiddenState(row, shouldHide);
   }
 }
 
@@ -198,6 +291,31 @@ function injectAccountNamesForLegacyCardLayout() {
   }
 }
 
+function applyHiddenAccountVisibilityForLegacyCardLayout() {
+  const buttons = document.querySelectorAll("button");
+
+  for (const button of buttons) {
+    const spans = button.querySelectorAll("span");
+    let accountId = null;
+
+    for (const span of spans) {
+      const text = span.textContent.trim();
+      if (ACCOUNT_ID_RE.test(text)) {
+        accountId = text;
+        break;
+      }
+    }
+
+    if (!accountId) {
+      continue;
+    }
+
+    const mappingEntry = resolveMappingEntry(accountId);
+    const shouldHide = !!mappingEntry?.hidden && !showHiddenAccounts;
+    setElementHiddenState(button, shouldHide);
+  }
+}
+
 function injectAccountNamesFromCache() {
   if (!cachedMappings || Object.keys(cachedMappings).length === 0) {
     return;
@@ -205,6 +323,11 @@ function injectAccountNamesFromCache() {
 
   injectAccountNamesForTableLayout();
   injectAccountNamesForLegacyCardLayout();
+}
+
+function applyHiddenAccountVisibilityFromCache() {
+  applyHiddenAccountVisibilityForTableLayout();
+  applyHiddenAccountVisibilityForLegacyCardLayout();
 }
 
 /**
@@ -228,7 +351,9 @@ async function injectAccountNames() {
 
     do {
       injectRequestedWhileRunning = false;
+      ensureShowHiddenAccountsToggle();
       injectAccountNamesFromCache();
+      applyHiddenAccountVisibilityFromCache();
     } while (injectRequestedWhileRunning);
   } finally {
     injectInFlight = false;
@@ -283,6 +408,8 @@ function handlePotentialViewUpdate() {
       }
 
       clearInjectedAccountNames();
+      clearHiddenAccountRows();
+      removeShowHiddenAccountsToggle();
       return;
     }
   }
