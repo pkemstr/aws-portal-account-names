@@ -3,7 +3,7 @@
   "name": "AWS Portal Account Names",
   "description": "Adds friendly account names to the AWS SSO portal account list",
   "version": "1.0.0",
-  "permissions": ["storage"],
+  "permissions": ["storage", "clipboardRead", "clipboardWrite"],
   "content_scripts": [
     {
       "matches": ["https://*.awsapps.com/start/*"],

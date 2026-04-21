@@ -22,6 +22,8 @@
 const MARKER_ATTR = "data-account-name-injected";
 const REINJECT_DEBOUNCE_MS = 150;
 const ACCOUNT_ID_RE = /^\d{12}$/;
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const DEFAULT_NAME_COLOR = "#0972d3";
 
 let cachedMappings = {};
 let mappingsLoaded = false;
@@ -83,11 +85,36 @@ function clearInjectedAccountNames() {
   document.querySelectorAll(`[${MARKER_ATTR}]`).forEach((el) => el.removeAttribute(MARKER_ATTR));
 }
 
-function createNameTag(friendlyName) {
+function resolveMappingEntry(accountId) {
+  const entry = cachedMappings[accountId];
+  if (!entry) {
+    return null;
+  }
+
+  if (typeof entry === "string") {
+    return {
+      friendlyName: entry,
+      color: DEFAULT_NAME_COLOR,
+    };
+  }
+
+  const friendlyName = typeof entry.name === "string" ? entry.name.trim() : "";
+  if (!friendlyName) {
+    return null;
+  }
+
+  const color = HEX_COLOR_RE.test(entry.color) ? entry.color : DEFAULT_NAME_COLOR;
+  return {
+    friendlyName,
+    color,
+  };
+}
+
+function createNameTag(friendlyName, color = DEFAULT_NAME_COLOR) {
   const nameTag = document.createElement("span");
   nameTag.className = "aws-portal-account-name-tag";
   nameTag.textContent = ` (${friendlyName})`;
-  nameTag.style.cssText = "color: #0972d3; font-weight: bold;";
+  nameTag.style.cssText = `color: ${color}; font-weight: bold;`;
   return nameTag;
 }
 
@@ -115,8 +142,8 @@ function injectAccountNamesForTableLayout() {
       continue;
     }
 
-    const friendlyName = cachedMappings[accountId];
-    if (!friendlyName) {
+    const mappingEntry = resolveMappingEntry(accountId);
+    if (!mappingEntry) {
       continue;
     }
 
@@ -133,7 +160,7 @@ function injectAccountNamesForTableLayout() {
     }
     aliasElement.setAttribute(MARKER_ATTR, "true");
 
-    aliasElement.appendChild(createNameTag(friendlyName));
+    aliasElement.appendChild(createNameTag(mappingEntry.friendlyName, mappingEntry.color));
   }
 }
 
@@ -147,9 +174,8 @@ function injectAccountNamesForLegacyCardLayout() {
     }
 
     const accountId = text;
-    const friendlyName = cachedMappings[accountId];
-
-    if (!friendlyName) {
+    const mappingEntry = resolveMappingEntry(accountId);
+    if (!mappingEntry) {
       continue;
     }
 
@@ -168,7 +194,7 @@ function injectAccountNamesForLegacyCardLayout() {
     if (aliasSpan.hasAttribute(MARKER_ATTR)) continue;
     aliasSpan.setAttribute(MARKER_ATTR, "true");
 
-    aliasSpan.after(createNameTag(friendlyName));
+    aliasSpan.after(createNameTag(mappingEntry.friendlyName, mappingEntry.color));
   }
 }
 

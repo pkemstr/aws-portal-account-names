@@ -62,7 +62,23 @@
       flex: 1;
     }
 
-    .mapping-row button {
+    .mapping-row .account-color-swatch {
+      width: 64px;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      color: #111;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .mapping-row .account-color-swatch:hover {
+      filter: brightness(0.96);
+    }
+
+    .mapping-row .remove-row-btn {
       padding: 8px 12px;
       border: 1px solid #ccc;
       border-radius: 4px;
@@ -72,7 +88,7 @@
       color: #d32f2f;
     }
 
-    .mapping-row button:hover {
+    .mapping-row .remove-row-btn:hover {
       background: #fdecea;
     }
 
@@ -159,11 +175,88 @@
       display: block;
       padding: 12px 0;
     }
+
+    .color-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .color-modal.open {
+      display: flex;
+    }
+
+    .color-modal-content {
+      width: 100%;
+      max-width: 360px;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      padding: 16px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+    }
+
+    .color-modal-content h3 {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .color-wheel-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    #color-wheel-canvas {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      border: 1px solid #ddd;
+      background: #fff;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .color-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    #color-preview {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      flex-shrink: 0;
+    }
+
+    #color-hex-input {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+
+    .color-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
   <h1>AWS Portal Account Names</h1>
-  <p class="subtitle">Configure account ID to friendly name mappings</p>
+  <p class="subtitle">Configure account ID to friendly name mappings and display colors</p>
 
   <div class="section">
     <h2>Account Mappings</h2>
@@ -180,12 +273,31 @@
     <p class="help">
       One mapping per line: <code>account_id = friendly_name</code><br>
       Example: <code>111122223333 = example-production-account</code><br>
-      Friendly names are limited to 120 characters.
+      Friendly names are limited to 120 characters. Imported entries use the default blue color.
     </p>
     <textarea id="bulk-text" placeholder="111122223333 = example-production-account&#10;444455556666 = example-dev-account"></textarea>
     <div class="actions">
       <button id="bulk-import" class="btn btn-secondary">Import</button>
       <button id="bulk-export" class="btn btn-secondary">Export</button>
+    </div>
+  </div>
+
+  <div id="color-picker-modal" class="color-modal" aria-hidden="true">
+    <div class="color-modal-content" role="dialog" aria-modal="true" aria-label="Pick account color">
+      <h3>Select display color</h3>
+      <div class="color-wheel-wrap">
+        <canvas id="color-wheel-canvas" width="220" height="220"></canvas>
+      </div>
+      <div class="color-controls">
+        <div id="color-preview" aria-hidden="true"></div>
+        <input id="color-hex-input" type="text" value="#0972d3" maxlength="7" placeholder="#0972d3">
+      </div>
+      <div class="color-actions">
+        <button id="color-copy" class="btn btn-secondary">Copy</button>
+        <button id="color-paste" class="btn btn-secondary">Paste</button>
+        <button id="color-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="color-apply" class="btn btn-primary">Apply</button>
+      </div>
     </div>
   </div>
 
