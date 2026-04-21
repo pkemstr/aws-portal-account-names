@@ -4,6 +4,61 @@
   <meta charset="UTF-8">
   <title>AWS Portal Account Names - Settings</title>
   <style>
+    :root {
+      color-scheme: light dark;
+      --page-bg: #f9fafb;
+      --text-main: #1a1a1a;
+      --text-muted: #666;
+      --section-bg: #fff;
+      --border-default: #e0e0e0;
+      --border-input: #ccc;
+      --btn-secondary-bg: #fff;
+      --btn-secondary-bg-hover: #f0f0f0;
+      --btn-secondary-text: #1a1a1a;
+      --help-code-bg: #f0f0f0;
+      --empty-text: #999;
+      --status-success-bg: #e8f5e9;
+      --status-success-text: #2e7d32;
+      --status-error-bg: #fdecea;
+      --status-error-text: #d32f2f;
+      --modal-overlay: rgba(0, 0, 0, 0.45);
+      --modal-bg: #fff;
+      --modal-border: #ddd;
+      --shadow-modal: 0 16px 36px rgba(0, 0, 0, 0.24);
+      --canvas-border: #ddd;
+      --preview-border: #bbb;
+      --input-bg: #fff;
+      --placeholder: #888;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page-bg: #111827;
+        --text-main: #e5e7eb;
+        --text-muted: #9ca3af;
+        --section-bg: #1f2937;
+        --border-default: #374151;
+        --border-input: #4b5563;
+        --btn-secondary-bg: #1f2937;
+        --btn-secondary-bg-hover: #374151;
+        --btn-secondary-text: #e5e7eb;
+        --help-code-bg: #374151;
+        --empty-text: #9ca3af;
+        --status-success-bg: #0f2f20;
+        --status-success-text: #8bd8a7;
+        --status-error-bg: #3a1d23;
+        --status-error-text: #f4a3ad;
+        --modal-overlay: rgba(0, 0, 0, 0.6);
+        --modal-bg: #1f2937;
+        --modal-border: #4b5563;
+        --shadow-modal: 0 16px 36px rgba(0, 0, 0, 0.5);
+        --canvas-border: #4b5563;
+        --preview-border: #6b7280;
+        --input-bg: #111827;
+        --placeholder: #9ca3af;
+      }
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -11,8 +66,8 @@
       max-width: 720px;
       margin: 0 auto;
       padding: 24px;
-      background: #f9fafb;
-      color: #1a1a1a;
+      background: var(--page-bg);
+      color: var(--text-main);
     }
 
     h1 {
@@ -21,14 +76,14 @@
     }
 
     .subtitle {
-      color: #666;
+      color: var(--text-muted);
       font-size: 14px;
       margin-bottom: 24px;
     }
 
     .section {
-      background: #fff;
-      border: 1px solid #e0e0e0;
+      background: var(--section-bg);
+      border: 1px solid var(--border-default);
       border-radius: 8px;
       padding: 20px;
       margin-bottom: 20px;
@@ -48,10 +103,12 @@
 
     .mapping-row input[type="text"] {
       padding: 8px 12px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
       font-size: 14px;
       font-family: monospace;
+      background: var(--input-bg);
+      color: var(--text-main);
     }
 
     .mapping-row .account-id {
@@ -65,7 +122,7 @@
     .mapping-row .account-color-swatch {
       width: 64px;
       padding: 8px 10px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
       color: #111;
       font-size: 12px;
@@ -83,7 +140,7 @@
       align-items: center;
       gap: 6px;
       font-size: 13px;
-      color: #444;
+      color: var(--text-muted);
       white-space: nowrap;
     }
 
@@ -95,9 +152,9 @@
 
     .mapping-row .remove-row-btn {
       padding: 8px 12px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
-      background: #fff;
+      background: var(--btn-secondary-bg);
       cursor: pointer;
       font-size: 14px;
       color: #d32f2f;
@@ -125,13 +182,13 @@
     }
 
     .btn-secondary {
-      background: #fff;
-      border: 1px solid #ccc;
-      color: #1a1a1a;
+      background: var(--btn-secondary-bg);
+      border: 1px solid var(--border-input);
+      color: var(--btn-secondary-text);
     }
 
     .btn-secondary:hover {
-      background: #f0f0f0;
+      background: var(--btn-secondary-bg-hover);
     }
 
     .actions {
@@ -150,14 +207,14 @@
 
     .status.success {
       display: block;
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: var(--status-success-bg);
+      color: var(--status-success-text);
     }
 
     .status.error {
       display: block;
-      background: #fdecea;
-      color: #d32f2f;
+      background: var(--status-error-bg);
+      color: var(--status-error-text);
     }
 
     .bulk-section textarea {
@@ -166,26 +223,28 @@
       font-family: monospace;
       font-size: 13px;
       padding: 12px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
       resize: vertical;
+      background: var(--input-bg);
+      color: var(--text-main);
     }
 
     .bulk-section .help {
-      color: #666;
+      color: var(--text-muted);
       font-size: 13px;
       margin-bottom: 8px;
     }
 
     .bulk-section .help code {
-      background: #f0f0f0;
+      background: var(--help-code-bg);
       padding: 1px 4px;
       border-radius: 2px;
     }
 
     #mappings-list:empty::after {
       content: "No mappings configured yet. Add one below or use bulk import.";
-      color: #999;
+      color: var(--empty-text);
       font-style: italic;
       display: block;
       padding: 12px 0;
@@ -195,7 +254,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.45);
+      background: var(--modal-overlay);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -209,11 +268,11 @@
     .color-modal-content {
       width: 100%;
       max-width: 360px;
-      background: #fff;
+      background: var(--modal-bg);
       border-radius: 10px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--modal-border);
       padding: 16px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+      box-shadow: var(--shadow-modal);
     }
 
     .color-modal-content h3 {
@@ -231,7 +290,7 @@
       width: 220px;
       height: 220px;
       border-radius: 50%;
-      border: 1px solid #ddd;
+      border: 1px solid var(--canvas-border);
       background: #fff;
       touch-action: none;
       cursor: crosshair;
@@ -248,17 +307,24 @@
       width: 30px;
       height: 30px;
       border-radius: 6px;
-      border: 1px solid #bbb;
+      border: 1px solid var(--preview-border);
       flex-shrink: 0;
     }
 
     #color-hex-input {
       flex: 1;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
       padding: 8px 10px;
       font-family: monospace;
       font-size: 14px;
+      background: var(--input-bg);
+      color: var(--text-main);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--placeholder);
     }
 
     .color-actions {
